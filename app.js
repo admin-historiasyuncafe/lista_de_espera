@@ -283,15 +283,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     window.updateGuestStatus = async (rowId, status) => {
+        // Encontrar al cliente localmente para el mensaje
         const guest = guests.find(g => g.rowId === rowId);
-        if (!guest) return;
+        const nameDisplay = guest ? guest.name.toUpperCase() : "CLIENTE";
 
-        // Confirmaciones personalizadas
-        let message = '';
-        if (status === 'SEATED') message = `¿Confirmar que el cliente ${guest.name.toUpperCase()} ya se ha sentado?`;
-        if (status === 'ABSENT') message = `¿Estás seguro de marcar que ${guest.name.toUpperCase()} NO llegó?`;
-
-        if (message && !confirm(message)) return;
+        // 1. Confirmar ANTES que cualquier otra cosa
+        const actionText = status === 'SEATED' ? 'SENTADO' : 'NO LLEGÓ';
+        const ok = confirm(`¿Estás seguro de marcar como ${actionText} a: ${nameDisplay}?`);
+        if (!ok) return;
 
         try {
             await fetch(BACKEND_URL, {
