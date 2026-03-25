@@ -205,7 +205,17 @@ h1 {
 
 .guest-details {
     color: var(--text-secondary);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 15px;
+    margin-top: 5px;
+}
+
+.guest-details span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .pax-badge {
