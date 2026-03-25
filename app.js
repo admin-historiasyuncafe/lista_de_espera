@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="customer-card ${isNotified ? 'notified' : ''}">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
-                        <h3 class="guest-name">${guest.name} <small style="font-weight: normal; color: var(--text-secondary); opacity: 0.8;">[${formattedPhone}]</small></h3>
+                        <h3 class="guest-name">${guest.name} <small style="font-weight: normal; color: var(--text-secondary); opacity: 0.8;">${formattedPhone}</small></h3>
                         <div class="guest-details">
                             <span>🕒 Registro: ${registrationTime}</span>
                             <span>👥 ${guest.pax} pax</span>
