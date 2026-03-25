@@ -105,6 +105,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     }
 
+    function formatPhone(phone) {
+        if (!phone) return '---';
+        const cleaned = ('' + phone).replace(/\D/g, '');
+        const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+        if (match) {
+            return `(${match[1]}) ${match[2]}-${match[3]}`;
+        }
+        return phone;
+    }
+
     // Render Function
     function render() {
         const searchTerm = searchInput.value.toLowerCase();
@@ -172,16 +182,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const isNotified = guest.status === 'NOTIFIED';
         const registrationTime = formatTime(guest.timestamp);
-        const resultTime = isHistory ? formatTime(guest.resultAt || guest.waitDuration) : '';
+        const formattedPhone = formatPhone(guest.phone);
         
         return `
             <div class="customer-card ${isNotified ? 'notified' : ''}">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
-                        <h3 class="guest-name">${guest.name} <small style="font-weight: normal; color: var(--text-secondary); opacity: 0.8;">[${guest.phone}]</small></h3>
+                        <h3 class="guest-name">${guest.name} <small style="font-weight: normal; color: var(--text-secondary); opacity: 0.8;">[${formattedPhone}]</small></h3>
                         <div class="guest-details">
                             <span>🕒 Registro: ${registrationTime}</span>
-                            ${isHistory ? `<span>🚪 Fin: ${resultTime}</span>` : ''}
                             <span>👥 ${guest.pax} pax</span>
                             <span>👶 ${guest.car === 'Sí' ? 'Con coche' : 'Sin coche'}</span>
                         </div>
