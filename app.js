@@ -89,12 +89,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     function parseWaitMinutes(guest) {
         const raw = Number(guest.waitDuration);
         if (!isNaN(raw) && guest.waitDuration !== '' && guest.waitDuration !== null) return raw;
-        if (guest.waitDuration) {
-            const end = new Date(guest.waitDuration).getTime();
+        const endTime = guest.resultAt || guest.waitDuration;
+        if (endTime && guest.timestamp) {
+            const end = new Date(endTime).getTime();
             const start = new Date(guest.timestamp).getTime();
-            if (!isNaN(end) && !isNaN(start)) return Math.floor((end - start) / 60000);
+            if (!isNaN(end) && !isNaN(start)) return Math.max(0, Math.floor((end - start) / 60000));
         }
         return 0;
+    }
+
+    function formatTime(dateStr) {
+        if (!dateStr) return '--:--';
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return '--:--';
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     }
 
     // Render Function
@@ -156,21 +164,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         const timestamp = new Date(guest.timestamp).getTime();
         let displayTime = 0;
 
-        if (isHistory && guest.waitDuration !== undefined && guest.waitDuration !== '') {
+        if (isHistory) {
             displayTime = parseWaitMinutes(guest);
         } else {
             displayTime = isNaN(timestamp) ? 0 : Math.floor((new Date().getTime() - timestamp) / 60000);
         }
 
         const isNotified = guest.status === 'NOTIFIED';
+        const registrationTime = formatTime(guest.timestamp);
+        const resultTime = isHistory ? formatTime(guest.resultAt || guest.waitDuration) : '';
         
         return `
             <div class="customer-card ${isNotified ? 'notified' : ''}">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
-                        <h3 class="guest-name">${guest.name}</h3>
+                        <h3 class="guest-name">${guest.name} <small style="font-weight: normal; color: var(--text-secondary); opacity: 0.8;">[${guest.phone}]</small></h3>
                         <div class="guest-details">
-                            <span>👥 ${guest.pax} personas</span>
+                            <span>🕒 Registro: ${registrationTime}</span>
+                            ${isHistory ? `<span>🚪 Fin: ${resultTime}</span>` : ''}
+                            <span>👥 ${guest.pax} pax</span>
                             <span>👶 ${guest.car === 'Sí' ? 'Con coche' : 'Sin coche'}</span>
                         </div>
                     </div>
@@ -293,6 +305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!ok) return;
 
         try {
+            // 2. Ejecutar si todo está OK
             await fetch(BACKEND_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'updateStatus', rowId, status })
