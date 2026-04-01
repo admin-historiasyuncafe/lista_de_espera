@@ -318,6 +318,39 @@ h1 {
     color: var(--brand-black);
 }
 
+/* Checkbox Styles */
+.form-group-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 15px;
+    border: 1px solid var(--glass-border);
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    transition: opacity 0.2s;
+}
+
+.checkbox-container:active {
+    opacity: 0.7;
+}
+
+.checkbox-container input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    accent-color: var(--brand-gold);
+}
+
 .hidden { display: none !important; }
 
 .summary-dashboard {
