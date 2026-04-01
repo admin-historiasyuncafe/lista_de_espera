@@ -183,6 +183,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isNotified = guest.status === 'NOTIFIED';
         const registrationTime = formatTime(guest.timestamp);
         const formattedPhone = formatPhone(guest.phone);
+
+        // Unpack special requirements (Workaround for backend limitations)
+        const typeData = guest.type || '';
+        const packedReqs = typeData.includes('|') ? typeData.split('|')[1] : '';
+        const hasCar = guest.car === 'Sí' || packedReqs.includes('C');
+        const hasWheelchair = packedReqs.includes('S');
+        const hasPet = packedReqs.includes('M');
+        
+        // Clean type for internal use if needed (not strictly necessary here as we don't display it in the card)
         
         return `
             <div class="customer-card ${isNotified ? 'notified' : ''}">
@@ -192,9 +201,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="guest-details">
                             <span>🕒 Registro: ${registrationTime}</span>
                             <span>👥 ${guest.pax} pax</span>
-                            ${guest.car === 'Sí' ? '<span>👶 Coche</span>' : ''}
-                            ${guest.wheelchair === 'Sí' ? '<span>♿ Silla</span>' : ''}
-                            ${guest.pet === 'Sí' ? '<span>🐕 Mascota</span>' : ''}
+                            ${hasCar ? '<span>👶 Coche</span>' : ''}
+                            ${hasWheelchair ? '<span>♿ Silla</span>' : ''}
+                            ${hasPet ? '<span>🐕 Mascota</span>' : ''}
                         </div>
                     </div>
                     <div class="pax-badge">${displayTime}m ${isHistory ? 'total' : 'esp.'}</div>
@@ -277,15 +286,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             submitBtn.disabled = true;
             submitBtn.textContent = 'GUARDANDO...';
 
+            const isCar = document.getElementById('guest-car').checked;
+            const isWheelchair = document.getElementById('guest-wheelchair').checked;
+            const isPet = document.getElementById('guest-pet').checked;
+            const baseType = document.getElementById('guest-type').value;
+
+            // Pack requirements into the 'type' field (e.g. "Primera|CSM")
+            let packedType = baseType;
+            let suffix = '';
+            if (isCar) suffix += 'C';
+            if (isWheelchair) suffix += 'S';
+            if (isPet) suffix += 'M';
+            if (suffix) packedType += '|' + suffix;
+
             const newGuest = {
                 action: 'addGuest',
                 name: document.getElementById('guest-name').value,
                 phone: document.getElementById('guest-phone').value,
                 pax: document.getElementById('guest-pax').value,
-                car: document.getElementById('guest-car').checked ? 'Sí' : 'No',
-                wheelchair: document.getElementById('guest-wheelchair').checked ? 'Sí' : 'No',
-                pet: document.getElementById('guest-pet').checked ? 'Sí' : 'No',
-                type: document.getElementById('guest-type').value
+                car: isCar ? 'Sí' : 'No', // Keep standard for car column
+                type: packedType
             };
 
             try {
