@@ -192,7 +192,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="guest-details">
                             <span>🕒 Registro: ${registrationTime}</span>
                             <span>👥 ${guest.pax} pax</span>
-                            <span>👶 ${guest.car === 'Sí' ? 'Con coche' : 'Sin coche'}</span>
+                            ${guest.car === 'Sí' ? '<span>👶 Coche</span>' : ''}
+                            ${guest.wheelchair === 'Sí' ? '<span>♿ Silla</span>' : ''}
+                            ${guest.pet === 'Sí' ? '<span>🐕 Mascota</span>' : ''}
                         </div>
                     </div>
                     <div class="pax-badge">${displayTime}m ${isHistory ? 'total' : 'esp.'}</div>
@@ -240,18 +242,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <input type="number" id="guest-pax" min="1" max="25" value="2" required>
                     </div>
                     <div class="form-group">
-                        <label>¿Coche de Bebé?</label>
-                        <select id="guest-car">
-                            <option value="No">No</option>
-                            <option value="Sí">Sí</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label>Tipo de Cliente</label>
                         <select id="guest-type">
                             <option value="Primera">Primera Vez</option>
                             <option value="Frecuente">Frecuente</option>
                         </select>
+                    </div>
+                    <div class="form-group-checkboxes">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="guest-car">
+                            <span>👶 Coche de Bebé</span>
+                        </label>
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="guest-wheelchair">
+                            <span>♿ Silla de Ruedas</span>
+                        </label>
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="guest-pet">
+                            <span>🐕 Mascota de Servicio</span>
+                        </label>
                     </div>
                     <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
                         <button type="button" class="btn btn-absent" onclick="closeModal()" style="flex: 1;">CANCELAR</button>
@@ -273,7 +282,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 name: document.getElementById('guest-name').value,
                 phone: document.getElementById('guest-phone').value,
                 pax: document.getElementById('guest-pax').value,
-                car: document.getElementById('guest-car').value,
+                car: document.getElementById('guest-car').checked ? 'Sí' : 'No',
+                wheelchair: document.getElementById('guest-wheelchair').checked ? 'Sí' : 'No',
+                pet: document.getElementById('guest-pet').checked ? 'Sí' : 'No',
                 type: document.getElementById('guest-type').value
             };
 
