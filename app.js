@@ -184,14 +184,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const registrationTime = formatTime(guest.timestamp);
         const formattedPhone = formatPhone(guest.phone);
 
-        // Unpack special requirements (Workaround for backend limitations)
+        // Unpack special requirements
         const typeData = guest.type || '';
         const packedReqs = typeData.includes('|') ? typeData.split('|')[1] : '';
         const hasCar = guest.car === 'Sí' || packedReqs.includes('C');
         const hasWheelchair = packedReqs.includes('S');
         const hasPet = packedReqs.includes('M');
-        
-        // Clean type for internal use if needed (not strictly necessary here as we don't display it in the card)
         
         return `
             <div class="customer-card ${isNotified ? 'notified' : ''}">
@@ -206,7 +204,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                             ${hasPet ? '<span>🐕 Mascota</span>' : ''}
                         </div>
                     </div>
-                    <div class="pax-badge">${displayTime}m ${isHistory ? 'total' : 'esp.'}</div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                        <div class="pax-badge">${displayTime}m ${isHistory ? 'total' : 'esp.'}</div>
+                        ${currentView === 'active' ? `<button onclick="openEditGuestModal(${guest.rowId})" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7" title="Editar">✏️</button>` : ''}
+                    </div>
                 </div>
                 
                 ${currentView === 'active' ? `
@@ -291,7 +292,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const isPet = document.getElementById('guest-pet').checked;
             const baseType = document.getElementById('guest-type').value;
 
-            // Pack requirements into the 'type' field (e.g. "Primera|CSM")
             let packedType = baseType;
             let suffix = '';
             if (isCar) suffix += 'C';
@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 name: document.getElementById('guest-name').value,
                 phone: document.getElementById('guest-phone').value,
                 pax: document.getElementById('guest-pax').value,
-                car: isCar ? 'Sí' : 'No', // Keep standard for car column
+                car: isCar ? 'Sí' : 'No',
                 type: packedType
             };
 
@@ -332,6 +332,113 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     window.closeModal = () => {
         modalContainer.classList.add('hidden');
+    };
+
+    window.openEditGuestModal = (rowId) => {
+        const guest = guests.find(g => g.rowId === rowId);
+        if (!guest) return;
+
+        const typeData = guest.type || '';
+        const baseType = typeData.includes('|') ? typeData.split('|')[0] : typeData;
+        const packedReqs = typeData.includes('|') ? typeData.split('|')[1] : '';
+        const hasCar = guest.car === 'Sí' || packedReqs.includes('C');
+        const hasWheelchair = packedReqs.includes('S');
+        const hasPet = packedReqs.includes('M');
+
+        modalContainer.innerHTML = `
+            <div class="modal-content">
+                <h2>Editar Registro</h2>
+                <form id="edit-guest-form">
+                    <div class="form-group">
+                        <label>Nombre del Cliente</label>
+                        <input type="text" id="edit-guest-name" required value="${guest.name}">
+                    </div>
+                    <div class="form-group">
+                        <label>Número de Teléfono</label>
+                        <input type="tel" id="edit-guest-phone" required value="${guest.phone}">
+                    </div>
+                    <div class="form-group">
+                        <label>Cantidad de Personas</label>
+                        <input type="number" id="edit-guest-pax" min="1" max="25" required value="${guest.pax}">
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Cliente</label>
+                        <select id="edit-guest-type">
+                            <option value="Primera" ${baseType === 'Primera' ? 'selected' : ''}>Primera Vez</option>
+                            <option value="Frecuente" ${baseType === 'Frecuente' ? 'selected' : ''}>Frecuente</option>
+                        </select>
+                    </div>
+                    <div class="form-group-checkboxes">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="edit-guest-car" ${hasCar ? 'checked' : ''}>
+                            <span>👶 Coche de Bebé</span>
+                        </label>
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="edit-guest-wheelchair" ${hasWheelchair ? 'checked' : ''}>
+                            <span>♿ Silla de Ruedas</span>
+                        </label>
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="edit-guest-pet" ${hasPet ? 'checked' : ''}>
+                            <span>🐕 Mascota de Servicio</span>
+                        </label>
+                    </div>
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button type="button" class="btn btn-absent" onclick="closeModal()" style="flex: 1;">CANCELAR</button>
+                        <button type="submit" class="btn btn-seated" style="flex: 1;">ACTUALIZAR</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        modalContainer.classList.remove('hidden');
+
+        document.getElementById('edit-guest-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'ACTUALIZANDO...';
+
+            const isCar = document.getElementById('edit-guest-car').checked;
+            const isWheelchair = document.getElementById('edit-guest-wheelchair').checked;
+            const isPet = document.getElementById('edit-guest-pet').checked;
+            const newBaseType = document.getElementById('edit-guest-type').value;
+
+            let packedType = newBaseType;
+            let suffix = '';
+            if (isCar) suffix += 'C';
+            if (isWheelchair) suffix += 'S';
+            if (isPet) suffix += 'M';
+            if (suffix) packedType += '|' + suffix;
+
+            const updatedGuest = {
+                action: 'editGuest',
+                rowId: guest.rowId,
+                name: document.getElementById('edit-guest-name').value,
+                phone: document.getElementById('edit-guest-phone').value,
+                pax: document.getElementById('edit-guest-pax').value,
+                car: isCar ? 'Sí' : 'No',
+                type: packedType
+            };
+
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(updatedGuest)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    closeModal();
+                    await refreshData();
+                } else {
+                    alert('Error al actualizar: ' + result.error);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'ACTUALIZAR';
+                }
+            } catch (err) {
+                console.error('Error al actualizar:', err);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'ACTUALIZAR';
+            }
+        });
     };
 
     window.updateGuestStatus = async (rowId, status) => {
