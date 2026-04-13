@@ -1,5 +1,5 @@
 // Configuration
-const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbw0Rt6ec_1xvr32n15DATvWHe0K5PVzh5XB5yfM58kNWyDOJgMDAqLKOW0GFFv3i-nY/exec'; 
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbz69qrduoQZXFYTk1cC0lRHpOMM2pfWw-HH02hXqPoNUiEEELbdmLL8riOll2FaQmJH/exec'; 
 
 // State Management
 let guests = [];
