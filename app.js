@@ -5,6 +5,8 @@ const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbz69qrduoQZXFYTk1cC
 let guests = [];
 let currentView = 'active';
 let selectedHistoryDate = new Date().toISOString().split('T')[0];
+let tableStatuses = {};
+const LOCAL_TABLES_KEY = 'waitlist_table_statuses';
 
 document.addEventListener('DOMContentLoaded', async () => {
     // DOM Elements
@@ -18,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const themeToggleBtn = document.getElementById('theme-toggle');
     const historyDatePicker = document.getElementById('history-date-picker');
     const historyFilterContainer = document.getElementById('history-filter-container');
+    const tablesContainer = document.getElementById('tables-container');
     const rootElement = document.documentElement;
 
     // Theme Logic (Manual + System Sync)
@@ -63,6 +66,64 @@ document.addEventListener('DOMContentLoaded', async () => {
             render();
         });
     }
+
+    // Tables Logic
+    function initTables() {
+        const saved = localStorage.getItem(LOCAL_TABLES_KEY);
+        if (saved) {
+            try {
+                tableStatuses = JSON.parse(saved);
+            } catch (e) {
+                tableStatuses = {};
+            }
+        }
+        // Ensure even tables 2 to 42 are initialized
+        for (let i = 2; i <= 42; i += 2) {
+            if (!tableStatuses[i]) {
+                tableStatuses[i] = 'green';
+            }
+        }
+        saveTables();
+    }
+
+    function saveTables() {
+        localStorage.setItem(LOCAL_TABLES_KEY, JSON.stringify(tableStatuses));
+    }
+
+    function renderTablesGrid() {
+        if (!tablesContainer) return;
+        let html = `
+            <div class="tables-title-container">
+                <span class="tables-title">Estado de Mesas</span>
+                <div class="tables-legend">
+                    <div class="legend-item"><span class="legend-dot green"></span>Disp.</div>
+                    <div class="legend-item"><span class="legend-dot yellow"></span>Por liberar</div>
+                    <div class="legend-item"><span class="legend-dot red"></span>Ocupada</div>
+                </div>
+            </div>
+            <div class="tables-grid">
+        `;
+        for (let i = 2; i <= 42; i += 2) {
+            const status = tableStatuses[i] || 'green';
+            html += `
+                <button class="table-btn ${status}" onclick="cycleTableStatus(${i})">${i}</button>
+            `;
+        }
+        html += `</div>`;
+        tablesContainer.innerHTML = html;
+    }
+
+    window.cycleTableStatus = (tableNum) => {
+        const current = tableStatuses[tableNum] || 'green';
+        let next = 'green';
+        if (current === 'green') next = 'yellow';
+        else if (current === 'yellow') next = 'red';
+        else next = 'green';
+        
+        tableStatuses[tableNum] = next;
+        saveTables();
+        renderTablesGrid();
+    };
 
     // Refresh Data Function
     async function refreshData() {
@@ -121,8 +182,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (currentView === 'history') {
             historyFilterContainer.classList.remove('hidden');
+            if (tablesContainer) tablesContainer.classList.add('hidden');
         } else {
             historyFilterContainer.classList.add('hidden');
+            if (tablesContainer) {
+                tablesContainer.classList.remove('hidden');
+                renderTablesGrid();
+            }
         }
 
         const filteredGuests = guests.filter(g => {
@@ -521,6 +587,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchInput.addEventListener('input', render);
 
     // Initial Load
+    initTables();
     await refreshData();
     setInterval(refreshData, 15000); // Auto-refresh cada 15 seg
 });

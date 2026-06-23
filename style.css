@@ -370,3 +370,120 @@ h1 {
 
 .summary-val { font-size: 1.4rem; font-weight: 700; display: block; color: var(--brand-teal-deep); }
 .summary-lab { font-size: 0.6rem; text-transform: uppercase; color: var(--brand-teal-muted); }
+
+/* Tables Status Section */
+.tables-section {
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 25px;
+    transition: all 0.3s ease;
+}
+
+.tables-title-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.tables-title {
+    font-size: 0.75rem;
+    color: var(--brand-teal-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+}
+
+.tables-legend {
+    display: flex;
+    gap: 12px;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+}
+
+.legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.legend-dot.green { background-color: #2ecc71; box-shadow: 0 0 6px rgba(46, 204, 113, 0.4); }
+.legend-dot.yellow { background-color: #f1c40f; box-shadow: 0 0 6px rgba(241, 196, 15, 0.4); }
+.legend-dot.red { background-color: #e74c3c; box-shadow: 0 0 6px rgba(231, 76, 60, 0.4); }
+
+.tables-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+    gap: 10px;
+    justify-items: center;
+}
+
+.table-btn {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+    outline: none;
+}
+
+.table-btn:active {
+    transform: scale(0.9);
+}
+
+.table-btn.green {
+    background-color: rgba(46, 204, 113, 0.2);
+    border-color: #2ecc71;
+    color: #2ecc71;
+    box-shadow: inset 0 0 8px rgba(46, 204, 113, 0.2);
+}
+
+.table-btn.yellow {
+    background-color: rgba(241, 196, 15, 0.2);
+    border-color: #f1c40f;
+    color: #f1c40f;
+    box-shadow: inset 0 0 8px rgba(241, 196, 15, 0.2);
+}
+
+.table-btn.red {
+    background-color: rgba(231, 76, 60, 0.2);
+    border-color: #e74c3c;
+    color: #e74c3c;
+    box-shadow: inset 0 0 8px rgba(231, 76, 60, 0.2);
+}
+
+/* Light mode specific adjustments */
+[data-theme="light"] .table-btn {
+    color: #333333;
+}
+[data-theme="light"] .table-btn.green {
+    background-color: rgba(46, 204, 113, 0.15);
+    color: #27ae60;
+}
+[data-theme="light"] .table-btn.yellow {
+    background-color: rgba(241, 196, 15, 0.15);
+    color: #d68910;
+}
+[data-theme="light"] .table-btn.red {
+    background-color: rgba(231, 76, 60, 0.15);
+    color: #c0392b;
+}
