@@ -1,5 +1,6 @@
 // Configuration
 const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbz69qrduoQZXFYTk1cC0lRHpOMM2pfWw-HH02hXqPoNUiEEELbdmLL8riOll2FaQmJH/exec'; 
+const TABLES_SYNC_URL = 'https://api.restful-api.dev/objects/ff808181a09d98f701a0cec1ab477ced';
 
 // State Management
 let guests = [];
@@ -67,6 +68,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Tables Cloud Sync Logic
+    async function fetchTablesFromCloud() {
+        try {
+            const response = await fetch(TABLES_SYNC_URL);
+            const json = await response.json();
+            if (json && json.data) {
+                tableStatuses = { ...tableStatuses, ...json.data };
+                saveTables();
+            }
+        } catch (err) {
+            console.error('Error al sincronizar mesas desde la nube:', err);
+        }
+    }
+
+    async function syncTablesToCloud() {
+        try {
+            await fetch(TABLES_SYNC_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'historias_tables', data: tableStatuses })
+            });
+        } catch (err) {
+            console.error('Error al guardar mesas en la nube:', err);
+        }
+    }
+
     // Tables Logic
     function initTables() {
         const saved = localStorage.getItem(LOCAL_TABLES_KEY);
@@ -84,6 +111,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         saveTables();
+        fetchTablesFromCloud().then(() => {
+            if (currentView === 'active') renderTablesGrid();
+        });
     }
 
     function saveTables() {
@@ -113,16 +143,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         tablesContainer.innerHTML = html;
     }
 
-    window.cycleTableStatus = (tableNum) => {
+    window.cycleTableStatus = async (tableNum) => {
         const current = tableStatuses[tableNum] || 'green';
         let next = 'green';
-        if (current === 'green') next = 'yellow';
-        else if (current === 'yellow') next = 'red';
+        if (current === 'green') next = 'red';
+        else if (current === 'red') next = 'yellow';
         else next = 'green';
         
         tableStatuses[tableNum] = next;
         saveTables();
         renderTablesGrid();
+        await syncTablesToCloud();
     };
 
     // Refresh Data Function
@@ -131,6 +162,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const response = await fetch(BACKEND_URL);
             guests = await response.json();
+            await fetchTablesFromCloud();
             render();
         } catch (err) {
             console.error('Error al cargar datos:', err);
@@ -279,7 +311,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ${currentView === 'active' ? `
                     <div class="actions">
                         <button class="btn btn-notify" onclick="notifyGuest(${guest.rowId}, event)" ${isNotified ? 'disabled' : ''}>
-                            ${isNotified ? '✅ NOTIFICADO' : '🔔 ENVIAR SMS'}
+                            ${isNotified ? '✅ NOTIFICADO' : '💬 ENVIAR WHATSAPP'}
                         </button>
                         <button class="btn btn-seated" onclick="updateGuestStatus(${guest.rowId}, 'SEATED')">
                             SENTADO
@@ -533,17 +565,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         const guest = guests.find(g => g.rowId === rowId);
         if (!guest) return;
 
-        const confirmSend = confirm(`¿Estás seguro de que deseas enviar el SMS a ${guest.name.toUpperCase()}?`);
+        const confirmSend = confirm(`¿Deseas notificar por WhatsApp a ${guest.name.toUpperCase()}?`);
         if (!confirmSend) return;
+
+        // Limpiar número de teléfono
+        let cleanPhone = ('' + guest.phone).replace(/\D/g, '');
+        if (cleanPhone.length === 10) {
+            cleanPhone = '1' + cleanPhone;
+        }
+
+        // Construir mensaje de WhatsApp
+        const msgText = `¡Hola, ${guest.name}! ¡Estamos encantados de informarle que su mesa para ${guest.pax} persona(s) en 'HISTORIAS Y UN CAFE' está lista! Le invitamos a unirse a nosotros en la recepción dentro de los próximos 5 minutos para asegurar su espacio. ¡Esperamos su llegada con gusto!`;
+        const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgText)}`;
+
+        // Abrir WhatsApp inmediatamente para evitar bloqueo de popups en iPad Safari
+        window.open(waUrl, '_blank');
 
         const btn = event?.target?.closest('.btn-notify');
         if (btn) {
             btn.disabled = true;
-            btn.textContent = 'ENVIANDO...';
+            btn.textContent = 'ABRIENDO WA...';
         }
 
         try {
-            const response = await fetch(BACKEND_URL, { 
+            // Registrar notificación en el backend
+            let response = await fetch(BACKEND_URL, { 
                 method: 'POST', 
                 body: JSON.stringify({ 
                     action: 'notify', 
@@ -553,22 +599,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                     pax: guest.pax 
                 }) 
             });
-            const result = await response.json();
+            let result = await response.json();
             
-            if (result.success) {
+            // Si el backend falla por problema de Twilio, asegurar actualización de estado a NOTIFIED
+            if (!result || !result.success) {
+                await fetch(BACKEND_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ 
+                        action: 'updateStatus', 
+                        rowId, 
+                        status: 'NOTIFIED' 
+                    }) 
+                });
+            }
+            await refreshData();
+        } catch (err) { 
+            console.error('Error al notificar en el backend:', err);
+            try {
+                await fetch(BACKEND_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ 
+                        action: 'updateStatus', 
+                        rowId, 
+                        status: 'NOTIFIED' 
+                    }) 
+                });
                 await refreshData();
-            } else {
-                alert('Error al enviar: ' + result.error);
+            } catch (e) {
                 if (btn) {
                     btn.disabled = false;
-                    btn.textContent = '🔔 ENVIAR SMS';
+                    btn.textContent = '💬 ENVIAR WHATSAPP';
                 }
-            }
-        } catch (err) { 
-            console.error('Error al notificar:', err); 
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = '🔔 ENVIAR SMS';
             }
         }
     };
