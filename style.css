@@ -230,25 +230,165 @@ h1 {
 /* Actions & Buttons */
 .actions {
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    gap: 8px;
     margin-top: 15px;
+}
+
+.actions.actions-history {
+    display: flex;
+    flex-direction: row;
+}
+
+.notify-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.notify-row .btn-notify {
+    flex: 1;
+}
+
+.status-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.status-row .btn-seated,
+.status-row .btn-absent {
+    flex: 1;
 }
 
 .btn {
     border: none;
-    padding: 10px 15px;
+    padding: 10px 12px;
     border-radius: 10px;
     font-weight: 700;
     font-size: 0.8rem;
     cursor: pointer;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: all 0.25s ease;
+    user-select: none;
 }
 
-.btn-notify { background: var(--brand-teal-deep); color: white; flex: 1.5; }
-.btn-seated { background: var(--brand-gold); color: white; flex: 1; }
-.btn-absent { background: #E74C3C; color: white; flex: 1; }
+.btn:active {
+    transform: scale(0.97);
+}
+
+.btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-notify { 
+    background: var(--brand-teal-deep); 
+    color: white; 
+}
+.btn-notify:hover:not(:disabled) {
+    filter: brightness(1.15);
+}
+
+/* Modo Rojo: cuando el checkbox Sin WA está marcado */
+.btn-notify.btn-red {
+    background: #E74C3C !important;
+    color: white !important;
+    box-shadow: 0 0 10px rgba(231, 76, 60, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.btn-notify.btn-red:hover:not(:disabled) {
+    background: #C0392B !important;
+    filter: brightness(1.1);
+}
+
+/* Checkbox Sin WA al lado del botón de WA */
+.checkbox-nowa {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    background: rgba(231, 76, 60, 0.1);
+    border: 1px solid rgba(231, 76, 60, 0.4);
+    color: #E74C3C;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.checkbox-nowa:hover {
+    background: rgba(231, 76, 60, 0.2);
+    border-color: #E74C3C;
+}
+
+.checkbox-nowa.checked {
+    background: rgba(231, 76, 60, 0.22);
+    border-color: #E74C3C;
+    box-shadow: 0 0 8px rgba(231, 76, 60, 0.35);
+}
+
+.checkbox-nowa input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #E74C3C;
+}
+
+.checkbox-nowa:has(input:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.checkbox-nowa-modal {
+    color: #E74C3C !important;
+    font-weight: 600;
+}
+
+.checkbox-nowa-modal input[type="checkbox"] {
+    accent-color: #E74C3C;
+}
+
+.btn-seated { 
+    background: var(--brand-gold); 
+    color: white; 
+}
+.btn-seated:hover {
+    filter: brightness(1.15);
+}
+
+.btn-absent { 
+    background: #E74C3C; 
+    color: white; 
+}
+.btn-absent:hover {
+    filter: brightness(1.15);
+}
 
 .badge-seated { color: var(--brand-teal-deep); font-weight: 700; }
 .badge-absent { color: #E74C3C; font-weight: 700; }
+
+.customer-card.notified {
+    border-left: 4px solid var(--brand-teal-deep);
+}
+
+.tag-nowa-red {
+    color: #E74C3C;
+    font-weight: 700;
+    background: rgba(231, 76, 60, 0.15);
+    padding: 2px 7px;
+    border-radius: 8px;
+    border: 1px solid rgba(231, 76, 60, 0.35);
+}
 
 /* Filter */
 #history-filter-container {

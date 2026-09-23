@@ -313,6 +313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasCar = guest.car === 'Sí' || packedReqs.includes('C');
         const hasWheelchair = packedReqs.includes('S');
         const hasPet = packedReqs.includes('M');
+        const noWhatsApp = packedReqs.includes('W');
         
         return `
             <div class="customer-card ${isNotified ? 'notified' : ''}">
@@ -325,6 +326,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             ${hasCar ? '<span>👶 Coche</span>' : ''}
                             ${hasWheelchair ? '<span>♿ Silla</span>' : ''}
                             ${hasPet ? '<span>🐕 Mascota</span>' : ''}
+                            ${noWhatsApp ? '<span class="tag-nowa-red">📞 Llamar (Sin WA)</span>' : ''}
                         </div>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -335,18 +337,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 ${currentView === 'active' ? `
                     <div class="actions">
-                        <button class="btn btn-notify" onclick="notifyGuest(${guest.rowId}, event)" ${isNotified ? 'disabled' : ''}>
-                            ${isNotified ? '✅ NOTIFICADO' : '💬 ENVIAR WHATSAPP'}
-                        </button>
-                        <button class="btn btn-seated" onclick="updateGuestStatus(${guest.rowId}, 'SEATED')">
-                            SENTADO
-                        </button>
-                        <button class="btn btn-absent" onclick="updateGuestStatus(${guest.rowId}, 'ABSENT')">
-                            NO LLEGÓ
-                        </button>
+                        <div class="notify-row">
+                            <button class="btn btn-notify ${noWhatsApp ? 'btn-red' : ''}" onclick="handleNotifyGuest(${guest.rowId}, event)" ${isNotified ? 'disabled' : ''} title="${noWhatsApp ? 'Notificar por llamada (No tiene WhatsApp)' : 'Enviar mensaje por WhatsApp'}">
+                                ${isNotified ? '✅ NOTIFICADO' : (noWhatsApp ? '📞 LLAMAR' : '💬 WHATSAPP')}
+                            </button>
+                            <label class="checkbox-nowa ${noWhatsApp ? 'checked' : ''}" title="Marcar si el cliente no tiene WhatsApp (el botón se tornará rojo para llamarlo)">
+                                <input type="checkbox" ${noWhatsApp ? 'checked' : ''} onchange="toggleNoWhatsApp(${guest.rowId}, this.checked)" ${isNotified ? 'disabled' : ''}>
+                                <span>Sin WA</span>
+                            </label>
+                        </div>
+                        <div class="status-row">
+                            <button class="btn btn-seated" onclick="updateGuestStatus(${guest.rowId}, 'SEATED')">
+                                SENTADO
+                            </button>
+                            <button class="btn btn-absent" onclick="updateGuestStatus(${guest.rowId}, 'ABSENT')">
+                                NO LLEGÓ
+                            </button>
+                        </div>
                     </div>
                 ` : `
-                    <div class="actions">
+                    <div class="actions actions-history">
                         <span class="badge-${guest.status.toLowerCase()}">${guest.status === 'SEATED' ? '👤 LLEGÓ' : '🚫 NO LLEGÓ'}</span>
                     </div>
                 `}
@@ -382,6 +392,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </select>
                     </div>
                     <div class="form-group-checkboxes">
+                        <label class="checkbox-container checkbox-nowa-modal">
+                            <input type="checkbox" id="guest-nowa">
+                            <span>📞 Sin WhatsApp (Llamar al cliente)</span>
+                        </label>
                         <label class="checkbox-container">
                             <input type="checkbox" id="guest-car">
                             <span>👶 Coche de Bebé</span>
@@ -413,6 +427,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const isCar = document.getElementById('guest-car').checked;
             const isWheelchair = document.getElementById('guest-wheelchair').checked;
             const isPet = document.getElementById('guest-pet').checked;
+            const isNoWa = document.getElementById('guest-nowa').checked;
             const baseType = document.getElementById('guest-type').value;
 
             let packedType = baseType;
@@ -420,6 +435,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (isCar) suffix += 'C';
             if (isWheelchair) suffix += 'S';
             if (isPet) suffix += 'M';
+            if (isNoWa) suffix += 'W';
             if (suffix) packedType += '|' + suffix;
 
             const newGuest = {
@@ -467,6 +483,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasCar = guest.car === 'Sí' || packedReqs.includes('C');
         const hasWheelchair = packedReqs.includes('S');
         const hasPet = packedReqs.includes('M');
+        const noWhatsApp = packedReqs.includes('W');
 
         modalContainer.innerHTML = `
             <div class="modal-content">
@@ -492,6 +509,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </select>
                     </div>
                     <div class="form-group-checkboxes">
+                        <label class="checkbox-container checkbox-nowa-modal">
+                            <input type="checkbox" id="edit-guest-nowa" ${noWhatsApp ? 'checked' : ''}>
+                            <span>📞 Sin WhatsApp (Llamar al cliente)</span>
+                        </label>
                         <label class="checkbox-container">
                             <input type="checkbox" id="edit-guest-car" ${hasCar ? 'checked' : ''}>
                             <span>👶 Coche de Bebé</span>
@@ -523,6 +544,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const isCar = document.getElementById('edit-guest-car').checked;
             const isWheelchair = document.getElementById('edit-guest-wheelchair').checked;
             const isPet = document.getElementById('edit-guest-pet').checked;
+            const isNoWa = document.getElementById('edit-guest-nowa').checked;
             const newBaseType = document.getElementById('edit-guest-type').value;
 
             let packedType = newBaseType;
@@ -530,6 +552,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (isCar) suffix += 'C';
             if (isWheelchair) suffix += 'S';
             if (isPet) suffix += 'M';
+            if (isNoWa) suffix += 'W';
             if (suffix) packedType += '|' + suffix;
 
             const updatedGuest = {
@@ -586,78 +609,144 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    window.notifyGuest = async (rowId, event) => {
+    window.toggleNoWhatsApp = async (rowId, isChecked) => {
         const guest = guests.find(g => g.rowId === rowId);
         if (!guest) return;
 
-        const confirmSend = confirm(`¿Deseas notificar por WhatsApp a ${guest.name.toUpperCase()}?`);
-        if (!confirmSend) return;
+        const typeData = guest.type || '';
+        const baseType = typeData.includes('|') ? typeData.split('|')[0] : typeData;
+        let packedReqs = typeData.includes('|') ? typeData.split('|')[1] : '';
 
-        // Limpiar número de teléfono
-        let cleanPhone = ('' + guest.phone).replace(/\D/g, '');
-        if (cleanPhone.length === 10) {
-            cleanPhone = '1' + cleanPhone;
+        if (isChecked) {
+            if (!packedReqs.includes('W')) packedReqs += 'W';
+        } else {
+            packedReqs = packedReqs.replace('W', '');
         }
 
-        // Construir mensaje de WhatsApp
-        const msgText = `¡Hola, ${guest.name}! ¡Estamos encantados de informarle que su mesa para ${guest.pax} persona(s) en 'HISTORIAS Y UN CAFE' está lista! Le invitamos a unirse a nosotros en la recepción dentro de los próximos 5 minutos para asegurar su espacio. ¡Esperamos su llegada con gusto!`;
-        const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgText)}`;
-
-        // Abrir WhatsApp inmediatamente para evitar bloqueo de popups en iPad Safari
-        window.open(waUrl, '_blank');
-
-        const btn = event?.target?.closest('.btn-notify');
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'ABRIENDO WA...';
-        }
+        const newType = packedReqs ? `${baseType}|${packedReqs}` : baseType;
+        guest.type = newType;
+        render();
 
         try {
-            // Registrar notificación en el backend
-            let response = await fetch(BACKEND_URL, { 
-                method: 'POST', 
-                body: JSON.stringify({ 
-                    action: 'notify', 
-                    rowId, 
-                    name: guest.name, 
-                    phone: guest.phone, 
-                    pax: guest.pax 
-                }) 
+            await fetch(BACKEND_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'editGuest',
+                    rowId: guest.rowId,
+                    name: guest.name,
+                    phone: guest.phone,
+                    pax: guest.pax,
+                    car: guest.car || 'No',
+                    type: newType
+                })
             });
-            let result = await response.json();
-            
-            // Si el backend falla por problema de Twilio, asegurar actualización de estado a NOTIFIED
-            if (!result || !result.success) {
-                await fetch(BACKEND_URL, { 
-                    method: 'POST', 
-                    body: JSON.stringify({ 
-                        action: 'updateStatus', 
-                        rowId, 
-                        status: 'NOTIFIED' 
-                    }) 
-                });
+        } catch (err) {
+            console.error('Error sincronizando Sin WA con backend:', err);
+        }
+    };
+
+    window.handleNotifyGuest = async (rowId, event) => {
+        const guest = guests.find(g => g.rowId === rowId);
+        if (!guest) return;
+
+        const typeData = guest.type || '';
+        const packedReqs = typeData.includes('|') ? typeData.split('|')[1] : '';
+        const noWhatsApp = packedReqs.includes('W');
+        const formattedPhone = formatPhone(guest.phone);
+
+        if (noWhatsApp) {
+            // Cliente sin WhatsApp: la host lo llama externamente y solo confirma la notificación
+            const confirmCall = confirm(`¿Confirmas que llamaste a ${guest.name.toUpperCase()} (${formattedPhone}) para notificarle que su mesa está lista?`);
+            if (!confirmCall) return;
+
+            const btn = event?.target?.closest('.btn-notify');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'NOTIFICANDO...';
             }
-            await refreshData();
-        } catch (err) { 
-            console.error('Error al notificar en el backend:', err);
+
             try {
-                await fetch(BACKEND_URL, { 
-                    method: 'POST', 
-                    body: JSON.stringify({ 
-                        action: 'updateStatus', 
-                        rowId, 
-                        status: 'NOTIFIED' 
-                    }) 
+                await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'updateStatus',
+                        rowId,
+                        status: 'NOTIFIED'
+                    })
                 });
                 await refreshData();
-            } catch (e) {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = '💬 ENVIAR WHATSAPP';
+            } catch (err) {
+                console.error('Error al actualizar estado tras llamada:', err);
+                await refreshData();
+            }
+        } else {
+            // Cliente con WhatsApp: abre WhatsApp y actualiza estado
+            const confirmSend = confirm(`¿Deseas notificar por WhatsApp a ${guest.name.toUpperCase()}?`);
+            if (!confirmSend) return;
+
+            let cleanPhone = ('' + guest.phone).replace(/\D/g, '');
+            if (cleanPhone.length === 10) {
+                cleanPhone = '1' + cleanPhone;
+            }
+
+            const msgText = `¡Hola, ${guest.name}! ¡Estamos encantados de informarle que su mesa para ${guest.pax} persona(s) en 'HISTORIAS Y UN CAFE' está lista! Le invitamos a unirse a nosotros en la recepción dentro de los próximos 5 minutos para asegurar su espacio. ¡Esperamos su llegada con gusto!`;
+            const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgText)}`;
+
+            window.open(waUrl, '_blank');
+
+            const btn = event?.target?.closest('.btn-notify');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'ABRIENDO WA...';
+            }
+
+            try {
+                let response = await fetch(BACKEND_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ 
+                        action: 'notify', 
+                        rowId, 
+                        name: guest.name, 
+                        phone: guest.phone, 
+                        pax: guest.pax 
+                    }) 
+                });
+                let result = await response.json();
+                
+                if (!result || !result.success) {
+                    await fetch(BACKEND_URL, { 
+                        method: 'POST', 
+                        body: JSON.stringify({ 
+                            action: 'updateStatus', 
+                            rowId, 
+                            status: 'NOTIFIED' 
+                        }) 
+                    });
+                }
+                await refreshData();
+            } catch (err) { 
+                console.error('Error al notificar en el backend:', err);
+                try {
+                    await fetch(BACKEND_URL, { 
+                        method: 'POST', 
+                        body: JSON.stringify({ 
+                            action: 'updateStatus', 
+                            rowId, 
+                            status: 'NOTIFIED' 
+                        }) 
+                    });
+                    await refreshData();
+                } catch (e) {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = '💬 WHATSAPP';
+                    }
                 }
             }
         }
     };
+
+    window.notifyGuest = window.handleNotifyGuest;
 
     // Tab Listeners
     tabButtons.forEach(btn => {
