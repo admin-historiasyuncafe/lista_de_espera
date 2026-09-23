@@ -67,6 +67,59 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Tables Cloud Sync via Backend
+    function syncTablesFromBackend() {
+        const tableDataRow = guests.find(g => g.name === '__TABLE_STATUSES__');
+        if (tableDataRow && tableDataRow.type) {
+            try {
+                const remoteTables = JSON.parse(tableDataRow.type);
+                tableStatuses = { ...tableStatuses, ...remoteTables };
+                saveTables();
+            } catch (e) {
+                console.error('Error parseando estado de mesas:', e);
+            }
+        }
+    }
+
+    async function syncTablesToBackend() {
+        const tableDataRow = guests.find(g => g.name === '__TABLE_STATUSES__');
+        const jsonStr = JSON.stringify(tableStatuses);
+        try {
+            if (tableDataRow) {
+                await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'editGuest',
+                        rowId: tableDataRow.rowId,
+                        name: '__TABLE_STATUSES__',
+                        phone: '0000000000',
+                        pax: 0,
+                        car: 'No',
+                        type: jsonStr
+                    })
+                });
+            } else {
+                const resp = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'addGuest',
+                        name: '__TABLE_STATUSES__',
+                        phone: '0000000000',
+                        pax: 0,
+                        car: 'No',
+                        type: jsonStr
+                    })
+                });
+                const result = await resp.json();
+                if (result && result.success) {
+                    await refreshData();
+                }
+            }
+        } catch (err) {
+            console.error('Error al guardar mesas en backend:', err);
+        }
+    }
+
     // Tables Logic
     function initTables() {
         const saved = localStorage.getItem(LOCAL_TABLES_KEY);
@@ -84,6 +137,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         saveTables();
+        syncTablesFromBackend();
     }
 
     function saveTables() {
@@ -113,16 +167,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         tablesContainer.innerHTML = html;
     }
 
-    window.cycleTableStatus = (tableNum) => {
+    window.cycleTableStatus = async (tableNum) => {
         const current = tableStatuses[tableNum] || 'green';
         let next = 'green';
-        if (current === 'green') next = 'yellow';
-        else if (current === 'yellow') next = 'red';
+        if (current === 'green') next = 'red';
+        else if (current === 'red') next = 'yellow';
         else next = 'green';
         
         tableStatuses[tableNum] = next;
         saveTables();
         renderTablesGrid();
+        await syncTablesToBackend();
     };
 
     // Refresh Data Function
@@ -131,6 +186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const response = await fetch(BACKEND_URL);
             guests = await response.json();
+            syncTablesFromBackend();
             render();
         } catch (err) {
             console.error('Error al cargar datos:', err);
@@ -192,6 +248,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const filteredGuests = guests.filter(g => {
+            if (g.name === '__TABLE_STATUSES__') return false;
             const matchesSearch = g.name.toLowerCase().includes(searchTerm);
             if (!matchesSearch) return false;
             
@@ -204,7 +261,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let summaryHtml = '';
         if (currentView === 'history') {
-            const history = guests.filter(g => (g.status === 'SEATED' || g.status === 'ABSENT') && isSameDate(g.timestamp, selectedHistoryDate));
+            const history = guests.filter(g => g.name !== '__TABLE_STATUSES__' && (g.status === 'SEATED' || g.status === 'ABSENT') && isSameDate(g.timestamp, selectedHistoryDate));
             const seatedCount = history.filter(g => g.status === 'SEATED').length;
             const absentCount = history.filter(g => g.status === 'ABSENT').length;
             const waitTimes = history.filter(g => (g.status === 'SEATED' || g.status === 'ABSENT') && g.waitDuration).map(g => parseWaitMinutes(g));
@@ -231,8 +288,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         waitlistContainer.innerHTML = summaryHtml + filteredGuests.map(guest => createGuestCard(guest)).join('');
         
         // Update Stats
-        waitingCountEl.textContent = guests.filter(g => g.status === 'WAITING').length;
-        notifiedCountEl.textContent = guests.filter(g => g.status === 'NOTIFIED').length;
+        waitingCountEl.textContent = guests.filter(g => g.name !== '__TABLE_STATUSES__' && g.status === 'WAITING').length;
+        notifiedCountEl.textContent = guests.filter(g => g.name !== '__TABLE_STATUSES__' && g.status === 'NOTIFIED').length;
     }
 
     function createGuestCard(guest) {
