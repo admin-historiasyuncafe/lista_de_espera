@@ -1,6 +1,5 @@
 // Configuration
 const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbz69qrduoQZXFYTk1cC0lRHpOMM2pfWw-HH02hXqPoNUiEEELbdmLL8riOll2FaQmJH/exec'; 
-const TABLES_SYNC_URL = 'https://api.restful-api.dev/objects/ff808181a09d98f701a0cec1ab477ced';
 
 // State Management
 let guests = [];
@@ -68,29 +67,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Tables Cloud Sync Logic
-    async function fetchTablesFromCloud() {
-        try {
-            const response = await fetch(TABLES_SYNC_URL);
-            const json = await response.json();
-            if (json && json.data) {
-                tableStatuses = { ...tableStatuses, ...json.data };
+    // Tables Cloud Sync via Backend
+    function syncTablesFromBackend() {
+        const tableDataRow = guests.find(g => g.name === '__TABLE_STATUSES__');
+        if (tableDataRow && tableDataRow.type) {
+            try {
+                const remoteTables = JSON.parse(tableDataRow.type);
+                tableStatuses = { ...tableStatuses, ...remoteTables };
                 saveTables();
+            } catch (e) {
+                console.error('Error parseando estado de mesas:', e);
             }
-        } catch (err) {
-            console.error('Error al sincronizar mesas desde la nube:', err);
         }
     }
 
-    async function syncTablesToCloud() {
+    async function syncTablesToBackend() {
+        const tableDataRow = guests.find(g => g.name === '__TABLE_STATUSES__');
+        const jsonStr = JSON.stringify(tableStatuses);
         try {
-            await fetch(TABLES_SYNC_URL, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: 'historias_tables', data: tableStatuses })
-            });
+            if (tableDataRow) {
+                await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'editGuest',
+                        rowId: tableDataRow.rowId,
+                        name: '__TABLE_STATUSES__',
+                        phone: '0000000000',
+                        pax: 0,
+                        car: 'No',
+                        type: jsonStr
+                    })
+                });
+            } else {
+                const resp = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'addGuest',
+                        name: '__TABLE_STATUSES__',
+                        phone: '0000000000',
+                        pax: 0,
+                        car: 'No',
+                        type: jsonStr
+                    })
+                });
+                const result = await resp.json();
+                if (result && result.success) {
+                    await refreshData();
+                }
+            }
         } catch (err) {
-            console.error('Error al guardar mesas en la nube:', err);
+            console.error('Error al guardar mesas en backend:', err);
         }
     }
 
@@ -111,9 +137,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         saveTables();
-        fetchTablesFromCloud().then(() => {
-            if (currentView === 'active') renderTablesGrid();
-        });
+        syncTablesFromBackend();
     }
 
     function saveTables() {
@@ -153,7 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         tableStatuses[tableNum] = next;
         saveTables();
         renderTablesGrid();
-        await syncTablesToCloud();
+        await syncTablesToBackend();
     };
 
     // Refresh Data Function
@@ -162,7 +186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const response = await fetch(BACKEND_URL);
             guests = await response.json();
-            await fetchTablesFromCloud();
+            syncTablesFromBackend();
             render();
         } catch (err) {
             console.error('Error al cargar datos:', err);
@@ -224,6 +248,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const filteredGuests = guests.filter(g => {
+            if (g.name === '__TABLE_STATUSES__') return false;
             const matchesSearch = g.name.toLowerCase().includes(searchTerm);
             if (!matchesSearch) return false;
             
@@ -236,7 +261,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let summaryHtml = '';
         if (currentView === 'history') {
-            const history = guests.filter(g => (g.status === 'SEATED' || g.status === 'ABSENT') && isSameDate(g.timestamp, selectedHistoryDate));
+            const history = guests.filter(g => g.name !== '__TABLE_STATUSES__' && (g.status === 'SEATED' || g.status === 'ABSENT') && isSameDate(g.timestamp, selectedHistoryDate));
             const seatedCount = history.filter(g => g.status === 'SEATED').length;
             const absentCount = history.filter(g => g.status === 'ABSENT').length;
             const waitTimes = history.filter(g => (g.status === 'SEATED' || g.status === 'ABSENT') && g.waitDuration).map(g => parseWaitMinutes(g));
@@ -263,8 +288,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         waitlistContainer.innerHTML = summaryHtml + filteredGuests.map(guest => createGuestCard(guest)).join('');
         
         // Update Stats
-        waitingCountEl.textContent = guests.filter(g => g.status === 'WAITING').length;
-        notifiedCountEl.textContent = guests.filter(g => g.status === 'NOTIFIED').length;
+        waitingCountEl.textContent = guests.filter(g => g.name !== '__TABLE_STATUSES__' && g.status === 'WAITING').length;
+        notifiedCountEl.textContent = guests.filter(g => g.name !== '__TABLE_STATUSES__' && g.status === 'NOTIFIED').length;
     }
 
     function createGuestCard(guest) {
