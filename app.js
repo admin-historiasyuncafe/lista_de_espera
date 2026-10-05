@@ -336,7 +336,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ${currentView === 'active' ? `
                     <div class="actions">
                         <button class="btn btn-notify" onclick="notifyGuest(${guest.rowId}, event)" ${isNotified ? 'disabled' : ''}>
-                            ${isNotified ? '✅ NOTIFICADO' : '💬 ENVIAR WHATSAPP'}
+                            ${isNotified ? '✅ NOTIFICADO' : '🔔 ENVIAR SMS'}
                         </button>
                         <button class="btn btn-seated" onclick="updateGuestStatus(${guest.rowId}, 'SEATED')">
                             SENTADO
@@ -346,7 +346,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </button>
                     </div>
                 ` : `
-                    <div class="actions">
+                    <div class="actions actions-history">
                         <span class="badge-${guest.status.toLowerCase()}">${guest.status === 'SEATED' ? '👤 LLEGÓ' : '🚫 NO LLEGÓ'}</span>
                     </div>
                 `}
@@ -586,35 +586,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    window.toggleNoWhatsApp = () => {};
+
     window.notifyGuest = async (rowId, event) => {
         const guest = guests.find(g => g.rowId === rowId);
         if (!guest) return;
 
-        const confirmSend = confirm(`¿Deseas notificar por WhatsApp a ${guest.name.toUpperCase()}?`);
+        const confirmSend = confirm(`¿Estás seguro de que deseas enviar el SMS a ${guest.name.toUpperCase()}?`);
         if (!confirmSend) return;
-
-        // Limpiar número de teléfono
-        let cleanPhone = ('' + guest.phone).replace(/\D/g, '');
-        if (cleanPhone.length === 10) {
-            cleanPhone = '1' + cleanPhone;
-        }
-
-        // Construir mensaje de WhatsApp
-        const msgText = `¡Hola, ${guest.name}! ¡Estamos encantados de informarle que su mesa para ${guest.pax} persona(s) en 'HISTORIAS Y UN CAFE' está lista! Le invitamos a unirse a nosotros en la recepción dentro de los próximos 5 minutos para asegurar su espacio. ¡Esperamos su llegada con gusto!`;
-        const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgText)}`;
-
-        // Abrir WhatsApp inmediatamente para evitar bloqueo de popups en iPad Safari
-        window.open(waUrl, '_blank');
 
         const btn = event?.target?.closest('.btn-notify');
         if (btn) {
             btn.disabled = true;
-            btn.textContent = 'ABRIENDO WA...';
+            btn.textContent = 'ENVIANDO SMS...';
         }
 
         try {
-            // Registrar notificación en el backend
-            let response = await fetch(BACKEND_URL, { 
+            const response = await fetch(BACKEND_URL, { 
                 method: 'POST', 
                 body: JSON.stringify({ 
                     action: 'notify', 
@@ -624,40 +612,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                     pax: guest.pax 
                 }) 
             });
-            let result = await response.json();
+            const result = await response.json();
             
-            // Si el backend falla por problema de Twilio, asegurar actualización de estado a NOTIFIED
-            if (!result || !result.success) {
-                await fetch(BACKEND_URL, { 
-                    method: 'POST', 
-                    body: JSON.stringify({ 
-                        action: 'updateStatus', 
-                        rowId, 
-                        status: 'NOTIFIED' 
-                    }) 
-                });
-            }
-            await refreshData();
-        } catch (err) { 
-            console.error('Error al notificar en el backend:', err);
-            try {
-                await fetch(BACKEND_URL, { 
-                    method: 'POST', 
-                    body: JSON.stringify({ 
-                        action: 'updateStatus', 
-                        rowId, 
-                        status: 'NOTIFIED' 
-                    }) 
-                });
+            if (result && result.success) {
                 await refreshData();
-            } catch (e) {
+            } else {
+                alert('Error al enviar SMS: ' + (result?.error || 'No se pudo completar el envío'));
                 if (btn) {
                     btn.disabled = false;
-                    btn.textContent = '💬 ENVIAR WHATSAPP';
+                    btn.textContent = '🔔 ENVIAR SMS';
                 }
+            }
+        } catch (err) { 
+            console.error('Error al notificar por SMS:', err); 
+            alert('Error de conexión al enviar el SMS.');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '🔔 ENVIAR SMS';
             }
         }
     };
+
+    window.handleNotifyGuest = window.notifyGuest;
 
     // Tab Listeners
     tabButtons.forEach(btn => {
