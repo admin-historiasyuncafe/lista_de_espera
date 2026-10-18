@@ -471,9 +471,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ` : `
                     <div class="actions actions-history" style="display: flex; justify-content: space-between; align-items: center;">
                         <span class="badge-${guest.status.toLowerCase()}">${guest.status === 'SEATED' ? '👤 LLEGÓ' : '🚫 NO LLEGÓ'}</span>
-                        <span class="table-badge ${assignedTable ? 'assigned' : 'unassigned'}" onclick="openQuickAssignModal(${guest.rowId})" title="${assignedTable ? 'Cambiar mesa asignada' : 'Asignar mesa'}">
-                            ${assignedTable ? `🍽️ Mesa ${assignedTable}` : '+ Mesa'}
-                        </span>
+                        ${assignedTable ? `<span class="table-badge assigned" style="cursor: default;">🍽️ Mesa ${assignedTable}</span>` : ''}
                     </div>
                 `}
             </div>
