@@ -447,12 +447,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <span class="table-badge ${assignedTable ? 'assigned' : 'unassigned'}" onclick="openQuickAssignModal(${guest.rowId})" title="${assignedTable ? 'Cambiar mesa asignada' : 'Asignar mesa'}">
                                     ${assignedTable ? `🍽️ Mesa ${assignedTable}` : '+ Mesa'}
                                 </span>
-                            ` : (assignedTable ? `<span class="table-badge assigned" style="cursor: default;">🍽️ Mesa ${assignedTable}</span>` : '')}
+                            ` : ''}
                         </div>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                         <div class="pax-badge">${displayTime}m ${isHistory ? 'total' : 'esp.'}</div>
-                        ${currentView === 'active' ? `<button onclick="openEditGuestModal(${guest.rowId})" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7" title="Editar">✏️</button>` : ''}
+                        <button onclick="openEditGuestModal(${guest.rowId})" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7" title="Editar">✏️</button>
                     </div>
                 </div>
                 
@@ -471,7 +471,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ` : `
                     <div class="actions actions-history" style="display: flex; justify-content: space-between; align-items: center;">
                         <span class="badge-${guest.status.toLowerCase()}">${guest.status === 'SEATED' ? '👤 LLEGÓ' : '🚫 NO LLEGÓ'}</span>
-                        ${assignedTable ? `<span class="table-badge assigned" style="cursor: default;">🍽️ Mesa ${assignedTable}</span>` : ''}
+                        <span class="table-badge ${assignedTable ? 'assigned' : 'unassigned'}" onclick="openQuickAssignModal(${guest.rowId})" title="${assignedTable ? 'Cambiar mesa asignada' : 'Asignar mesa'}">
+                            ${assignedTable ? `🍽️ Mesa ${assignedTable}` : '+ Mesa'}
+                        </span>
                     </div>
                 `}
             </div>
