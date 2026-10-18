@@ -227,6 +227,58 @@ h1 {
     font-weight: 700;
 }
 
+/* Table Badge in Cards */
+.table-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    vertical-align: middle;
+}
+
+.table-badge.assigned {
+    background: rgba(177, 138, 93, 0.18);
+    border: 1px solid var(--brand-gold);
+    color: var(--brand-gold);
+}
+
+.table-badge.assigned:hover {
+    background: rgba(177, 138, 93, 0.3);
+    transform: translateY(-1px);
+}
+
+.table-badge.unassigned {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px dashed var(--brand-teal-muted);
+    color: var(--brand-teal-muted);
+}
+
+.table-badge.unassigned:hover {
+    background: rgba(0, 125, 129, 0.15);
+    border-color: var(--brand-teal-deep);
+    color: var(--brand-teal-pale);
+    transform: translateY(-1px);
+}
+
+[data-theme="light"] .table-badge.assigned {
+    background: rgba(177, 138, 93, 0.15);
+    color: #8c683b;
+    border-color: #8c683b;
+}
+
+[data-theme="light"] .table-badge.unassigned {
+    background: #f0f0f0;
+    border: 1px dashed var(--brand-teal-muted);
+    color: var(--brand-teal-muted);
+}
+
 /* Actions & Buttons */
 .actions {
     display: flex;

@@ -232,9 +232,120 @@ document.addEventListener('DOMContentLoaded', async () => {
         return phone;
     }
 
+    // Guest Requirements & Table Helper Functions
+    function parseGuestData(guest) {
+        const typeData = guest.type || '';
+        let baseType = typeData;
+        let flags = '';
+        let assignedTable = (guest.table !== undefined && guest.table !== null && guest.table !== '') 
+            ? String(guest.table).trim() 
+            : ((guest.assignedTable !== undefined && guest.assignedTable !== null && guest.assignedTable !== '') 
+                ? String(guest.assignedTable).trim() 
+                : '');
+
+        if (typeData.includes('|')) {
+            const parts = typeData.split('|');
+            baseType = parts[0];
+            const extra = parts.slice(1).join('|');
+            if (extra.includes('#')) {
+                const extraParts = extra.split('#');
+                flags = extraParts[0];
+                if (!assignedTable && extraParts[1]) {
+                    assignedTable = extraParts[1].replace(/^T:/, '').trim();
+                }
+            } else {
+                flags = extra;
+            }
+        }
+
+        const hasCar = guest.car === 'Sí' || flags.includes('C');
+        const hasWheelchair = flags.includes('S') || flags.includes('W');
+        const hasPet = flags.includes('M');
+        const hasHighChair = flags.includes('H');
+
+        return {
+            baseType,
+            hasCar,
+            hasWheelchair,
+            hasPet,
+            hasHighChair,
+            assignedTable
+        };
+    }
+
+    function packGuestType(baseType, flagsObj, assignedTable) {
+        let suffix = '';
+        if (flagsObj.hasCar) suffix += 'C';
+        if (flagsObj.hasWheelchair) suffix += 'S';
+        if (flagsObj.hasPet) suffix += 'M';
+        if (flagsObj.hasHighChair) suffix += 'H';
+
+        const tableStr = (assignedTable || '').toString().trim();
+        if (tableStr) {
+            suffix += '#' + tableStr;
+        }
+
+        if (suffix) {
+            return `${baseType}|${suffix}`;
+        }
+        return baseType;
+    }
+
+    function isEvenTable2to42(val) {
+        if (!val) return false;
+        const num = parseInt(val, 10);
+        return !isNaN(num) && num >= 2 && num <= 42 && num % 2 === 0 && num.toString() === val.toString().trim();
+    }
+
+    function generateTableSelectOptions(currentTable) {
+        let options = `<option value="">-- Sin asignar --</option>`;
+        let isStandardTable = false;
+        const curStr = (currentTable || '').toString().trim();
+
+        for (let i = 2; i <= 42; i += 2) {
+            const isSelected = (curStr === i.toString());
+            if (isSelected) isStandardTable = true;
+            const status = tableStatuses[i] || 'green';
+            const statusText = status === 'green' ? '🟢 Disp.' : status === 'yellow' ? '🟡 Por liberar' : '🔴 Ocupada';
+            options += `<option value="${i}" ${isSelected ? 'selected' : ''}>Mesa ${i} (${statusText})</option>`;
+        }
+
+        const hasCustom = curStr && !isStandardTable;
+        if (hasCustom) {
+            options += `<option value="${curStr}" selected>Mesa ${curStr}</option>`;
+        }
+        options += `<option value="__custom__">✏️ Otra mesa / Barra...</option>`;
+        return options;
+    }
+
+    function attachTableSelectHandler(selectId, customInputId) {
+        const selectEl = document.getElementById(selectId);
+        const customInputEl = document.getElementById(customInputId);
+        if (!selectEl || !customInputEl) return;
+
+        selectEl.addEventListener('change', () => {
+            if (selectEl.value === '__custom__') {
+                customInputEl.classList.remove('hidden');
+                customInputEl.focus();
+            } else {
+                customInputEl.classList.add('hidden');
+            }
+        });
+    }
+
+    function getSelectedTableValue(selectId, customInputId) {
+        const selectEl = document.getElementById(selectId);
+        const customInputEl = document.getElementById(customInputId);
+        if (!selectEl) return '';
+        if (selectEl.value === '__custom__') {
+            return customInputEl ? customInputEl.value.trim() : '';
+        }
+        return selectEl.value.trim();
+    }
+
     // Render Function
     function render() {
-        const searchTerm = searchInput.value.toLowerCase();
+        const searchTerm = searchInput.value.toLowerCase().trim();
         
         if (currentView === 'history') {
             historyFilterContainer.classList.remove('hidden');
@@ -249,7 +360,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const filteredGuests = guests.filter(g => {
             if (g.name === '__TABLE_STATUSES__') return false;
-            const matchesSearch = g.name.toLowerCase().includes(searchTerm);
+            const info = parseGuestData(g);
+            const matchesSearch = !searchTerm || 
+                g.name.toLowerCase().includes(searchTerm) ||
+                (info.assignedTable && info.assignedTable.toLowerCase().includes(searchTerm)) ||
+                (info.assignedTable && `mesa ${info.assignedTable}`.toLowerCase().includes(searchTerm));
+
             if (!matchesSearch) return false;
             
             if (currentView === 'active') {
@@ -307,12 +423,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const registrationTime = formatTime(guest.timestamp);
         const formattedPhone = formatPhone(guest.phone);
 
-        // Unpack special requirements
-        const typeData = guest.type || '';
-        const packedReqs = typeData.includes('|') ? typeData.split('|')[1] : '';
-        const hasCar = guest.car === 'Sí' || packedReqs.includes('C');
-        const hasWheelchair = packedReqs.includes('S');
-        const hasPet = packedReqs.includes('M');
+        // Unpack special requirements and table
+        const info = parseGuestData(guest);
+        const hasCar = info.hasCar;
+        const hasWheelchair = info.hasWheelchair;
+        const hasPet = info.hasPet;
+        const hasHighChair = info.hasHighChair;
+        const assignedTable = info.assignedTable;
         
         return `
             <div class="customer-card ${isNotified ? 'notified' : ''}">
@@ -325,6 +442,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                             ${hasCar ? '<span>👶 Coche</span>' : ''}
                             ${hasWheelchair ? '<span>♿ Silla</span>' : ''}
                             ${hasPet ? '<span>🐕 Mascota</span>' : ''}
+                            ${hasHighChair ? '<span>🪑 High Chair</span>' : ''}
+                            ${currentView === 'active' ? `
+                                <span class="table-badge ${assignedTable ? 'assigned' : 'unassigned'}" onclick="openQuickAssignModal(${guest.rowId})" title="${assignedTable ? 'Cambiar mesa asignada' : 'Asignar mesa'}">
+                                    ${assignedTable ? `🍽️ Mesa ${assignedTable}` : '+ Mesa'}
+                                </span>
+                            ` : (assignedTable ? `<span class="table-badge assigned" style="cursor: default;">🍽️ Mesa ${assignedTable}</span>` : '')}
                         </div>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -346,8 +469,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </button>
                     </div>
                 ` : `
-                    <div class="actions actions-history">
+                    <div class="actions actions-history" style="display: flex; justify-content: space-between; align-items: center;">
                         <span class="badge-${guest.status.toLowerCase()}">${guest.status === 'SEATED' ? '👤 LLEGÓ' : '🚫 NO LLEGÓ'}</span>
+                        ${assignedTable ? `<span class="table-badge assigned" style="cursor: default;">🍽️ Mesa ${assignedTable}</span>` : ''}
                     </div>
                 `}
             </div>
@@ -356,6 +480,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Modal Logic
     addGuestBtn.addEventListener('click', openAddGuestModal);
+
+    modalContainer.addEventListener('click', (e) => {
+        if (e.target === modalContainer) {
+            closeModal();
+        }
+    });
 
     function openAddGuestModal() {
         modalContainer.innerHTML = `
@@ -381,6 +511,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <option value="Frecuente">Frecuente</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label>Mesa Asignada (Opcional)</label>
+                        <select id="guest-table">
+                            ${generateTableSelectOptions('')}
+                        </select>
+                        <input type="text" id="guest-table-custom" class="hidden" placeholder="Ej. Barra, Terraza, etc." style="margin-top: 8px;">
+                    </div>
                     <div class="form-group-checkboxes">
                         <label class="checkbox-container">
                             <input type="checkbox" id="guest-car">
@@ -394,6 +531,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <input type="checkbox" id="guest-pet">
                             <span>🐕 Mascota de Servicio</span>
                         </label>
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="guest-highchair">
+                            <span>🪑 High Chair</span>
+                        </label>
                     </div>
                     <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
                         <button type="button" class="btn btn-absent" onclick="closeModal()" style="flex: 1;">CANCELAR</button>
@@ -403,6 +544,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
         `;
         modalContainer.classList.remove('hidden');
+        attachTableSelectHandler('guest-table', 'guest-table-custom');
 
         document.getElementById('add-guest-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -413,14 +555,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const isCar = document.getElementById('guest-car').checked;
             const isWheelchair = document.getElementById('guest-wheelchair').checked;
             const isPet = document.getElementById('guest-pet').checked;
+            const isHighChair = document.getElementById('guest-highchair').checked;
             const baseType = document.getElementById('guest-type').value;
+            const assignedTable = getSelectedTableValue('guest-table', 'guest-table-custom');
 
-            let packedType = baseType;
-            let suffix = '';
-            if (isCar) suffix += 'C';
-            if (isWheelchair) suffix += 'S';
-            if (isPet) suffix += 'M';
-            if (suffix) packedType += '|' + suffix;
+            const packedType = packGuestType(baseType, {
+                hasCar: isCar,
+                hasWheelchair: isWheelchair,
+                hasPet: isPet,
+                hasHighChair: isHighChair
+            }, assignedTable);
 
             const newGuest = {
                 action: 'addGuest',
@@ -428,7 +572,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 phone: document.getElementById('guest-phone').value,
                 pax: document.getElementById('guest-pax').value,
                 car: isCar ? 'Sí' : 'No',
-                type: packedType
+                type: packedType,
+                table: assignedTable
             };
 
             try {
@@ -461,12 +606,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const guest = guests.find(g => g.rowId === rowId);
         if (!guest) return;
 
-        const typeData = guest.type || '';
-        const baseType = typeData.includes('|') ? typeData.split('|')[0] : typeData;
-        const packedReqs = typeData.includes('|') ? typeData.split('|')[1] : '';
-        const hasCar = guest.car === 'Sí' || packedReqs.includes('C');
-        const hasWheelchair = packedReqs.includes('S');
-        const hasPet = packedReqs.includes('M');
+        const info = parseGuestData(guest);
+        const baseType = info.baseType;
+        const hasCar = info.hasCar;
+        const hasWheelchair = info.hasWheelchair;
+        const hasPet = info.hasPet;
+        const hasHighChair = info.hasHighChair;
+        const assignedTable = info.assignedTable;
 
         modalContainer.innerHTML = `
             <div class="modal-content">
@@ -491,6 +637,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <option value="Frecuente" ${baseType === 'Frecuente' ? 'selected' : ''}>Frecuente</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label>Mesa Asignada</label>
+                        <select id="edit-guest-table">
+                            ${generateTableSelectOptions(assignedTable)}
+                        </select>
+                        <input type="text" id="edit-guest-table-custom" class="${assignedTable && !isEvenTable2to42(assignedTable) ? '' : 'hidden'}" value="${assignedTable && !isEvenTable2to42(assignedTable) ? assignedTable : ''}" placeholder="Ej. Barra, Terraza, etc." style="margin-top: 8px;">
+                    </div>
                     <div class="form-group-checkboxes">
                         <label class="checkbox-container">
                             <input type="checkbox" id="edit-guest-car" ${hasCar ? 'checked' : ''}>
@@ -504,6 +657,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <input type="checkbox" id="edit-guest-pet" ${hasPet ? 'checked' : ''}>
                             <span>🐕 Mascota de Servicio</span>
                         </label>
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="edit-guest-highchair" ${hasHighChair ? 'checked' : ''}>
+                            <span>🪑 High Chair</span>
+                        </label>
                     </div>
                     <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
                         <button type="button" class="btn btn-absent" onclick="closeModal()" style="flex: 1;">CANCELAR</button>
@@ -513,6 +670,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
         `;
         modalContainer.classList.remove('hidden');
+        attachTableSelectHandler('edit-guest-table', 'edit-guest-table-custom');
 
         document.getElementById('edit-guest-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -523,14 +681,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const isCar = document.getElementById('edit-guest-car').checked;
             const isWheelchair = document.getElementById('edit-guest-wheelchair').checked;
             const isPet = document.getElementById('edit-guest-pet').checked;
+            const isHighChair = document.getElementById('edit-guest-highchair').checked;
             const newBaseType = document.getElementById('edit-guest-type').value;
+            const newAssignedTable = getSelectedTableValue('edit-guest-table', 'edit-guest-table-custom');
 
-            let packedType = newBaseType;
-            let suffix = '';
-            if (isCar) suffix += 'C';
-            if (isWheelchair) suffix += 'S';
-            if (isPet) suffix += 'M';
-            if (suffix) packedType += '|' + suffix;
+            const packedType = packGuestType(newBaseType, {
+                hasCar: isCar,
+                hasWheelchair: isWheelchair,
+                hasPet: isPet,
+                hasHighChair: isHighChair
+            }, newAssignedTable);
 
             const updatedGuest = {
                 action: 'editGuest',
@@ -539,7 +699,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 phone: document.getElementById('edit-guest-phone').value,
                 pax: document.getElementById('edit-guest-pax').value,
                 car: isCar ? 'Sí' : 'No',
-                type: packedType
+                type: packedType,
+                table: newAssignedTable
             };
 
             try {
@@ -564,25 +725,192 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
-    window.updateGuestStatus = async (rowId, status) => {
-        // Encontrar al cliente localmente para el mensaje
+    window.openQuickAssignModal = (rowId) => {
         const guest = guests.find(g => g.rowId === rowId);
-        const nameDisplay = guest ? guest.name.toUpperCase() : "CLIENTE";
+        if (!guest) return;
+        const info = parseGuestData(guest);
 
-        // 1. Confirmar ANTES que cualquier otra cosa
-        const actionText = status === 'SEATED' ? 'SENTADO' : 'NO LLEGÓ';
-        const ok = confirm(`¿Estás seguro de marcar como ${actionText} a: ${nameDisplay}?`);
-        if (!ok) return;
+        modalContainer.innerHTML = `
+            <div class="modal-content">
+                <h2>Asignar Mesa</h2>
+                <p style="margin-bottom: 15px; color: var(--text-secondary); font-size: 0.95rem;">
+                    Cliente: <strong>${guest.name}</strong> (${guest.pax} pax)
+                </p>
+                <form id="quick-assign-form">
+                    <div class="form-group">
+                        <label>Mesa Asignada</label>
+                        <select id="quick-guest-table">
+                            ${generateTableSelectOptions(info.assignedTable)}
+                        </select>
+                        <input type="text" id="quick-guest-table-custom" class="${info.assignedTable && !isEvenTable2to42(info.assignedTable) ? '' : 'hidden'}" value="${info.assignedTable && !isEvenTable2to42(info.assignedTable) ? info.assignedTable : ''}" placeholder="Ej. Barra, Terraza, etc." style="margin-top: 8px;">
+                    </div>
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button type="button" class="btn btn-absent" onclick="closeModal()" style="flex: 1;">CANCELAR</button>
+                        <button type="submit" class="btn btn-seated" style="flex: 1;">GUARDAR</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        modalContainer.classList.remove('hidden');
+        attachTableSelectHandler('quick-guest-table', 'quick-guest-table-custom');
 
+        document.getElementById('quick-assign-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'GUARDANDO...';
+
+            const newAssignedTable = getSelectedTableValue('quick-guest-table', 'quick-guest-table-custom');
+            const packedType = packGuestType(info.baseType, info, newAssignedTable);
+
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'editGuest',
+                        rowId: guest.rowId,
+                        name: guest.name,
+                        phone: guest.phone,
+                        pax: guest.pax,
+                        car: info.hasCar ? 'Sí' : 'No',
+                        type: packedType,
+                        table: newAssignedTable
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    closeModal();
+                    await refreshData();
+                } else {
+                    alert('Error al guardar mesa: ' + result.error);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'GUARDAR';
+                }
+            } catch (err) {
+                console.error('Error al guardar mesa:', err);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'GUARDAR';
+            }
+        });
+    };
+
+    window.openSeatWithTableModal = (guest) => {
+        const info = parseGuestData(guest);
+        modalContainer.innerHTML = `
+            <div class="modal-content">
+                <h2>Sentar Cliente</h2>
+                <p style="margin-bottom: 15px; color: var(--text-secondary); font-size: 0.95rem;">
+                    ¿En qué mesa se sentará a <strong>${guest.name}</strong> (${guest.pax} pax)?
+                </p>
+                <form id="seat-table-form">
+                    <div class="form-group">
+                        <label>Mesa Asignada</label>
+                        <select id="seat-guest-table">
+                            ${generateTableSelectOptions(info.assignedTable || '')}
+                        </select>
+                        <input type="text" id="seat-guest-table-custom" class="hidden" placeholder="Ej. Barra, Terraza, etc." style="margin-top: 8px;">
+                    </div>
+                    <div class="form-actions" style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                        <button type="submit" class="btn btn-seated" style="width: 100%; padding: 12px;">✅ CONFIRMAR Y SENTAR</button>
+                        <button type="button" id="seat-no-table-btn" class="btn" style="width: 100%; background: rgba(255, 255, 255, 0.1); color: var(--text-primary); padding: 10px;">Sentar sin registrar mesa</button>
+                        <button type="button" class="btn btn-absent" onclick="closeModal()" style="width: 100%; padding: 8px;">CANCELAR</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        modalContainer.classList.remove('hidden');
+        attachTableSelectHandler('seat-guest-table', 'seat-guest-table-custom');
+
+        document.getElementById('seat-table-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'SENTANDO...';
+            const assignedTable = getSelectedTableValue('seat-guest-table', 'seat-guest-table-custom');
+            await markGuestSeated(guest, assignedTable);
+        });
+
+        document.getElementById('seat-no-table-btn').addEventListener('click', async (e) => {
+            e.target.disabled = true;
+            e.target.textContent = 'SENTANDO...';
+            await markGuestSeated(guest, '');
+        });
+    };
+
+    async function markGuestSeated(guest, assignedTable) {
+        const info = parseGuestData(guest);
+        const finalTable = assignedTable !== undefined ? assignedTable : (info.assignedTable || '');
+        
         try {
-            // 2. Ejecutar si todo está OK
+            if (finalTable) {
+                const packedType = packGuestType(info.baseType, info, finalTable);
+                await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'editGuest',
+                        rowId: guest.rowId,
+                        name: guest.name,
+                        phone: guest.phone,
+                        pax: guest.pax,
+                        car: info.hasCar ? 'Sí' : 'No',
+                        type: packedType,
+                        table: finalTable
+                    })
+                });
+
+                // Si es una mesa estándar 2..42, actualizar su estado en la cuadrícula a ocupada (red)
+                const tNum = parseInt(finalTable, 10);
+                if (tNum && tableStatuses[tNum] && tableStatuses[tNum] !== 'red') {
+                    tableStatuses[tNum] = 'red';
+                    saveTables();
+                    renderTablesGrid();
+                    syncTablesToBackend();
+                }
+            }
+
             await fetch(BACKEND_URL, {
                 method: 'POST',
-                body: JSON.stringify({ action: 'updateStatus', rowId, status })
+                body: JSON.stringify({ action: 'updateStatus', rowId: guest.rowId, status: 'SEATED' })
             });
+
+            closeModal();
             await refreshData();
         } catch (err) {
-            console.error('Error al actualizar:', err);
+            console.error('Error al sentar cliente:', err);
+            alert('Error al registrar estado: ' + err.message);
+        }
+    }
+
+    window.updateGuestStatus = async (rowId, status) => {
+        const guest = guests.find(g => g.rowId === rowId);
+        if (!guest) return;
+        const nameDisplay = guest.name ? guest.name.toUpperCase() : "CLIENTE";
+
+        if (status === 'ABSENT') {
+            const ok = confirm(`¿Estás seguro de marcar como NO LLEGÓ a: ${nameDisplay}?`);
+            if (!ok) return;
+
+            try {
+                await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'updateStatus', rowId, status: 'ABSENT' })
+                });
+                await refreshData();
+            } catch (err) {
+                console.error('Error al actualizar:', err);
+            }
+            return;
+        }
+
+        if (status === 'SEATED') {
+            const info = parseGuestData(guest);
+            if (info.assignedTable) {
+                const ok = confirm(`¿Confirmas sentar a ${nameDisplay} en la MESA ${info.assignedTable}?`);
+                if (!ok) return;
+                await markGuestSeated(guest, info.assignedTable);
+            } else {
+                window.openSeatWithTableModal(guest);
+            }
         }
     };
 
